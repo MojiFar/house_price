@@ -10,14 +10,21 @@ from re import search
 import requests
 from bs4 import BeautifulSoup
 import re
+import urllib3
+import csv
 
 # data_set = pd.read_csv('Apartments_koopen.csv')
-
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 quote_page = 'https://www.jaap.nl/koophuizen/noord+holland/groot-amsterdam/amsterdam'
 page = requests.get(quote_page, verify=False, timeout=20)
 soup = BeautifulSoup(page.content, "lxml")
 A = []
 Dataset = []
+Dataset_address = []
+Dataset_kenmerk = []
+Dataset_woningwarde = []
+Dataset_buurt = []
+Dataset_inowner = []
 for line in soup.find_all('span', class_='page-info'):
     A = line.text.strip().split('van')
     last_page = int(A[-1])
@@ -29,7 +36,10 @@ def address(soup2):
 		street = street.text
 		zipcode = row2.find('div', class_='detail-address-zipcity')
 		zipcode = zipcode.text
-		zipcode2 = re.search(r'^\d{4}\s*\w{2}', zipcode).group()
+		try:
+		    zipcode2 = re.search(r'^\d{4}\s*\w{2}', zipcode).group()
+		except:
+			zipcode2 = "na"
 		price = row2.find('div', class_='detail-address-price')
 		price = price.text.strip().replace('€','')
 		return street, zipcode2,price
@@ -44,29 +54,32 @@ def kenmerk(soup2):
 	kenmerk = []
 	for row in soup2.find_all('div', class_='detail-tab-content kenmerken'):
 		for row2 in row.find_all('td', class_='value'):
-			kenmerk.append(row2.text.strip())
+			kenmerk.append(row2.text.strip().replace('€',''))
 	return kenmerk
 
 def woning(soup2):
 	woning = []
 	for row in soup2.find_all('div', class_='detail-tab-content woningwaarde'):
 		for row2 in row.find_all('td', class_='value'):
-			woning.append(row2.text.strip())
+			woning.append(row2.text.strip().replace('€',''))
 		for row3 in row.find_all('td', class_='value-3-3'):
-		    woning.append(row3.text.strip())
+		    woning.append(row3.text.strip().replace('€',''))
 	return woning
 
 def buurt(soup2):
 	buurt_target = []
 	buurt_distance = []
+	buurt_name = []
 	buurt_dict = {}
 	for row in soup2.find_all('table', class_='voorzieningen'):
-		for row2 in row.find_all('td', class_='value-1-2'):
+		for row4 in row.find_all_next('div', class_='no-dots'):
+			buurt_name.append(row4.text.strip())
+		for row2 in row.find_all_next('td', class_='value-1-2'):
 			buurt_target.append(row2.text.strip())
-		for row3 in row.find_all('td', class_='value-2-2'):
+		for row3 in row.find_all_next('td', class_='value-2-2'):
 			buurt_distance.append(row3.text.strip().replace('\xa0',' '))
 	for i in range(len(buurt_target)):
-		buurt_dict[buurt_target[i]] = buurt_distance[i]
+		buurt_dict[buurt_name[i]] = [buurt_target[i],buurt_distance[i]]
 	return buurt_dict
 
 def inwoner(soup2):
@@ -78,6 +91,7 @@ def inwoner(soup2):
 
 
 for counter in range(1, last_page):
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         page = requests.get("https://www.jaap.nl/koophuizen/noord+holland/groot-amsterdam/amsterdam/p"+str(counter)
                             , verify=False, timeout=20)
         soup = BeautifulSoup(page.content, "lxml")
@@ -96,72 +110,47 @@ for counter in range(1, last_page):
             buurt1.clear()
             buurt1 = buurt(soup2)
             inwoner1 = inwoner(soup2)
-            OutCome = [street, zipcode, price, broker_name, kenmerken, woningwarde, buurt1, inwoner1]
-            Dataset.append(OutCome)
+            Address_set = [street, zipcode, price, broker_name]
+            Kenmerk_set = [kenmerken]
+            Woningwarde_set = [woningwarde]
+            Buurt_set = [buurt1]
+            Inwoner_set = [inwoner1]
+            Dataset_address.append(Address_set)
+            Dataset_kenmerk.append(kenmerken)
+            Dataset_woningwarde.append(woningwarde)
+            Dataset_buurt.append(buurt1)
+            Dataset_inowner.append(inwoner1)
 
-df = pd.DataFrame(Dataset)#,  columns = ['Street','Zipcode','Price','Broker','Type', 'Construnction_year','Living_area',
-									   #'LOT','Plot', 'Other', 'Insulation', 'Heating', 'Energy_label', 'Energy_consumption',
-									   #'inside_maintenance_state', 'Rooms', 'Bedrooms', 'Sanitation', 'kitchen',
-									   #'outside_maintenace_state','outside_state_painting','Graden','view','Balcony', 'Garage',
-									   #'number_of_times_shown', 'number_of_times_shown_yesterday', 'posted_date',
-									   #'current_price', 'original_price', 'changes_in_price', 'price', 'price_per_m2', 'times_in_sales',
-									   #])
-df.to_csv('AllReviewsF.csv', sep = ',', encoding ='utf-8')
+df_address = pd.DataFrame(Dataset_address, columns = ['Street', 'Zipcode', 'Price', 'Broker'])
+df_kenmerk = pd.DataFrame(Dataset_kenmerk, columns = ['Type', 'Construction_year', 'Living_area', 'LOT', 'Plot', 'Other',
+													  'Insulation','Heating', 'Energy_label', 'Energy_consumption',
+													 'inside_maintenance_state', 'Rooms', 'Bedrooms', 'Sanitation', 'kitchen',
+													 'outside_maintenace_state','outside_state_painting','Graden','view','Balcony', 'Garage',
+													 'number_of_times_shown', 'number_of_times_shown_yesterday'])
+df_woningwarde = pd.DataFrame(Dataset_woningwarde, columns = ['posted_date','current_price', 'original_price', 'changes_in_price', 'price',
+															 'price_per_m2', 'times_in_sales',])
+df_buurt = pd.DataFrame(Dataset_buurt, columns = ['Railway_station', 'gas_station', 'Fitness_center', 'Supermarket', 'Elementary_school',
+												  'Day_care', 'High_school', 'Cafe','Video_store', 'GP', 'Dentistary', 'library'])
+df_inowner = pd.DataFrame(Dataset_inowner, columns = ['inhabitants','distribution_fm', 'population_density','Age_0-15',
+													  'age_15-25','age_25-45','age_45-65','age_older','indigenous', 'western_allochtoon',
+													  'none_western','household', 'household_single', 'household_wo_kids', 'household_with_kids',
+													  'avg_person_per_household', 'perc_with_job', 'high_income', 'medium_income', 'low_income',
+													  'income_avg', 'social_benefit'])
+
+df_address.to_csv('houses_address.csv', sep = ',', encoding ='utf-8', index=False)
+df_kenmerk.to_csv('houses_details.csv', sep = ',', encoding ='utf-8', index=False)
+df_woningwarde.to_csv('houses_price.csv', sep = ',', encoding ='utf-8', index=False)
+df_inowner.to_csv('houses_population.csv', sep = ',', encoding ='utf-8', index=False)
+#df_buurt.to_csv('houses_neighborhood.csv', sep = ',', encoding ='utf-8', index=False)
 
 
 
+ 
+order = ["treinstation","tankstation","supermarkt","basisschool","kinderopvang","middelbare school",
+		 "café","videotheek","(huis)arts","tandarts", "fitnesscentrum","bibliotheek"]
+with open('houses_neighborhood.csv', 'w', newline='') as f:
+    dict_writer = csv.DictWriter(f, order)
+    dict_writer.writeheader()
+    dict_writer.writerows(Dataset_buurt)
 
 
-
-
-def Web_Scraper(page):
-    quote_page = page
-    page = requests.get(quote_page ,verify=False, timeout=3)
-    soup = BeautifulSoup(page.content, "lxml")
-    A = []
-    Dataset = []   
-    # it finds the total number of pages in trustpilot
-    for line in soup.find_all('a', class_='pagination-page'):
-        A = line.text.strip().split('van')
-        last_page = int(A[-2])
-    # it goes over all the pages one by one to get all the info for each review.
-    QuotePage = '/review/www.rebtel.com'
-    for counter in range(0,last_page):
-        page = requests.get("https://www.jaap.nl/koophuizen/noord+holland/groot-amsterdam/amsterdam/p"+str(counter)
-                            ,verify=False, timeout=20)
-        soup = BeautifulSoup(page.content, "lxml")
-        #print(counter)
-        # finding reviews-container since all the input located there
-        for row in soup.find_all('div', class_='property-inner', href=True):
-            AllReviews= row.find_all('div', class_='card')
-            for cells in row.find_all('div', class_='card'):
-                # finding customer name
-                Name = cells.find('h3', class_='consumer-info__details__name')
-                Name = Name.text.strip()
-                Review = cells.find('div', class_='review-info__header__verified')
-                # finding star review or rating
-                StarReview = Review.contents[1].attrs['class'][1]
-                StarReview = StarReview.split('-')[1]
-                # finding the title of the review
-                Title = cells.find('h2', class_='review-info__body__title')
-                Title = Title.text.strip()
-                # finding the body of the review
-                Body = cells.find('p', class_='review-info__body__text')
-                Body = Body.text.strip()
-                # finding the date and time
-                DateTime = cells.find('time', class_='ndate')
-                Date, Time = DateTime.attrs['datetime'].split('T')
-                Time = Time.split(".")
-                Time = Time[0]
-                OutCome = [Name, StarReview, Title,Body,Date, Time]
-                Dataset.append(OutCome)
-        # trigger for going to the next page
-        for line in soup.find_all('a', class_='pagination-page'):
-            if line.text == "Next page":
-                NextPage = line.attrs['href']
-                QuotePage = NextPage
-
-    df = pd.DataFrame(Dataset,  columns = ['Name','StarRating','Title','Body','Date', 'Time'])
-    df.to_csv('AllReviewsF.csv', sep = ',', encoding ='utf-8')
-#page = 'https://www.trustpilot.com/review/www.rebtel.com'
-#Web_Scraper(page)

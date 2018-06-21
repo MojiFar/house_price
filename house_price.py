@@ -35,9 +35,9 @@ def address(soup2):
 		street = row2.find('div', class_= 'detail-address-street')
 		street = street.text
 		zipcode = row2.find('div', class_='detail-address-zipcity')
-		zipcode = zipcode.text
 		try:
-		    zipcode2 = re.search(r'^\d{4}\s*\w{2}', zipcode).group()
+			zipcode = zipcode.text
+			zipcode2 = re.search(r'^\d{4}\s*\w{2}', zipcode).group()
 		except:
 			zipcode2 = "na"
 		price = row2.find('div', class_='detail-address-price')
@@ -91,9 +91,10 @@ def inwoner(soup2):
 
 
 for counter in range(1, last_page):
+        print("The page number is:", counter)
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         page = requests.get("https://www.jaap.nl/koophuizen/noord+holland/groot-amsterdam/amsterdam/p"+str(counter)
-                            , verify=False, timeout=20)
+                            , verify=False, timeout=50)
         soup = BeautifulSoup(page.content, "lxml")
         #print(counter)
         # finding reviews-container since all the input located there
@@ -101,7 +102,7 @@ for counter in range(1, last_page):
             buurt1 = {}
             inowner1 = []
             link = row.attrs['href']
-            page2 = requests.get(link, verify=False, timeout=20)
+            page2 = requests.get(link, verify=False, timeout=50)
             soup2 = BeautifulSoup(page2.content, "lxml")
             street, zipcode, price = address(soup2)
             broker_name = broker(soup2)

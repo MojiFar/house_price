@@ -38,8 +38,12 @@ def address(soup2):
 		try:
 			zipcode = zipcode.text
 			zipcode2 = re.search(r'^\d{4}\s*\w{2}', zipcode).group()
-		except:
-			zipcode2 = "na"
+		except Exception:
+			try:
+				zipcode = street.split(',')[-1]
+				zipcode2 = re.search(r'^\d{4}\s*\w{2}|\b\d{4}\s*\w{2}', zipcode).group()
+			except:
+				zipcode2 = "na"
 		price = row2.find('div', class_='detail-address-price')
 		price = price.text.strip().replace('€','')
 		return street, zipcode2,price

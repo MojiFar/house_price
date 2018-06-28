@@ -82,6 +82,8 @@ def buurt(soup2):
 			buurt_target.append(row2.text.strip())
 		for row3 in row.find_all_next('td', class_='value-2-2'):
 			buurt_distance.append(row3.text.strip().replace('\xa0',' '))
+		buurt_place = row.find_all('td', colspan='3')
+		buurt_place = buurt_place[0].text.replace('Deze woning is gelegen in de buurt ','')
 	for i in range(len(buurt_target)):
 		buurt_dict[buurt_name[i]] = [buurt_target[i],buurt_distance[i]]
 	return buurt_dict
